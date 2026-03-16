@@ -18,13 +18,8 @@ const db = mysql.createPool({
   }
 });
 
-db.connect((err) => {
-  if (err) {
-    console.log("Database connection failed:", err);
-  } else {
     console.log("Connected to Aiven MySQL database");
-  }
-});
+
 
 /* LOGIN API */
 app.post("/login", (req, res) => {
