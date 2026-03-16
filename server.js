@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 /* DATABASE CONNECTION (AIVEN CLOUD) */
-const db = mysql.createConnection({
+const db = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   user: process.env.DB_USER,
