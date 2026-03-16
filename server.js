@@ -6,22 +6,25 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-/* DATABASE CONNECTION */
+/* DATABASE CONNECTION (AIVEN CLOUD) */
 const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "school"
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 db.connect((err) => {
   if (err) {
     console.log("Database connection failed:", err);
   } else {
-    console.log("Connected to MySQL database");
+    console.log("Connected to Aiven MySQL database");
   }
 });
-
 
 /* LOGIN API */
 app.post("/login", (req, res) => {
