@@ -182,48 +182,117 @@ app.get("/notices/count", (req, res) => {
 
 });
 
+//result upload notification multer
+const multer = require("multer");
 
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) =>
+    cb(null, Date.now() + "-" + file.originalname)
+});
+
+const upload = multer({ storage });
 /* RESULT UPLOAD NOTIFICATION */
-app.post("/upload-result", (req, res) => {
-
-  const { reg_number } = req.body;
-
-  const resultSQL = `
-    INSERT INTO results (reg_number)
-    VALUES (?)
-  `;
-
-  db.query(resultSQL, [reg_number], (err) => {
-
-    if (err) {
-      console.log("Result Insert Error:", err);
-      return res.status(500).json(err);
+app.post("/upload-results", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.json({ message: "No file uploaded" });
     }
 
-    const noticeSQL = `
-      INSERT INTO notices (title,message,date_posted,expires_at,student_reg)
-      VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY), ?)
-    `;
+    const { level, semester, academic_year } = req.body;
 
-    const title = "Result Uploaded";
-    const message = "Your semester result has been uploaded.";
+    const workbook = XLSX.readFile(req.file.path);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
 
-    db.query(noticeSQL, [title, message, reg_number], (err2) => {
-
-      if (err2) {
-        console.log("Notice Insert Error:", err2);
-      } else {
-        console.log("Notice created successfully");
-      }
-
-      res.json({
-        message:"Result uploaded and notification created"
+    const query = (sql, params) =>
+      new Promise((resolve, reject) => {
+        db.query(sql, params, (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        });
       });
 
+    // =========================
+    // STEP 1: SAVE ALL RESULTS
+    // =========================
+    for (const row of rows) {
+      const {
+        reg_number,
+        full_name,
+        course_code,
+        course_title,
+        unit,
+        score
+      } = row;
+
+      if (!reg_number || !course_code) continue;
+
+      const existing = await query(
+        `SELECT * FROM results
+         WHERE reg_number=? AND course_code=? AND semester=? AND academic_year=?`,
+        [reg_number, course_code, semester, academic_year]
+      );
+
+      if (existing.length === 0) {
+        await query(
+          `INSERT INTO results
+          (reg_number, course_code, course_title, unit, score, semester, academic_year, level)
+          VALUES (?,?,?,?,?,?,?,?)`,
+          [
+            reg_number,
+            course_code,
+            course_title,
+            unit,
+            score,
+            semester,
+            academic_year,
+            level
+          ]
+        );
+      }
+    }
+
+    // =========================
+    // STEP 2: CREATE ONLY ONE NOTICE
+    // =========================
+
+    const course_code = rows[0]?.course_code;
+
+    if (course_code) {
+
+      const existingNotice = await query(
+        `SELECT id FROM notices
+         WHERE course = ? AND semester = ? AND academic_year = ?
+         LIMIT 1`,
+        [course_code, semester, academic_year]
+      );
+
+      if (existingNotice.length === 0) {
+        await query(
+          `INSERT INTO notices (title, message, course, date_posted, expires_at)
+           VALUES (?,?,?,?,?)`,
+          [
+            "Result Uploaded",
+            `${course_code} results for ${semester} semester (${academic_year}) have been uploaded.`,
+            course_code,
+            new Date(),
+            new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+          ]
+        );
+      }
+    }
+
+    fs.unlinkSync(req.file.path);
+
+    return res.json({
+      message: "Results uploaded successfully (single notice created)"
     });
 
-  });
-
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Upload failed" });
+  }
 });
 
 
