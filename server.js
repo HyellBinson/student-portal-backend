@@ -118,25 +118,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 /* RESULT UPLOAD (FIXED - NO DUPLICATE NOTICES) */
-app.post("/upload-results", upload.single("file"), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.json({ message: "No file uploaded" });
-    }
 
-    const { level, semester, academic_year } = req.body;
-
-    const workbook = XLSX.readFile(req.file.path);
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet);
-
-    const query = (sql, params) =>
-      new Promise((resolve, reject) => {
-        db.query(sql, params, (err, result) => {
-          if (err) reject(err);
-          else resolve(result);
-        });
-      });
 
     // =========================
     // SAVE RESULTS ONLY
