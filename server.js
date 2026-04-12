@@ -103,20 +103,27 @@ app.get("/api/results/:reg_number", (req, res) => {
 
 /* ADD NOTICE */
 app.post("/add-notice", (req, res) => {
-  const { title, message } = req.body;
+  const { title, message, student_reg } = req.body;
+
+  // Normalize student_reg
+  const targetStudent = student_reg && student_reg.trim() !== "" ? student_reg : null;
 
   const sql = `
-    INSERT INTO notices (title,message,date_posted,expires_at)
-    VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))
+    INSERT INTO notices (title, message, date_posted, student_reg, expires_at)
+    VALUES (?, ?, NOW(), ?, DATE_ADD(NOW(), INTERVAL 7 DAY))
   `;
 
-  db.query(sql, [title, message], (err) => {
+  db.query(sql, [title, message, targetStudent], (err) => {
     if (err) {
       console.log(err);
       return res.status(500).json({ error: "Failed to add notice" });
     }
 
-    res.json({ message: "Notice uploaded successfully" });
+    res.json({
+      message: targetStudent
+        ? "Notice sent to specific student"
+        : "Notice sent to all students"
+    });
   });
 });
 
